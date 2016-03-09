@@ -1,0 +1,389 @@
+
+<!-- saved from url=(0089)http://www.atarimagazines.com/compute/issue54/170_1_Enhanced_Commodore_64_DOS_Support.php -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Enhanced Commodore 64 DOS Support</title>
+<meta name="Author" content="Stephen S. Melsheimer">
+<meta name="description" content="Enhanced Commodore 64 DOS Support From Compute! Issue 54 / November 1984">
+</head>
+
+<body text="#000000" bgcolor="#FFFFFF" link="#0000EE" vlink="#800080" alink="#FF0000"><pre><a href="http://www.atarimagazines.com/compute/"><img src="./Enhanced Commodore 64 DOS Support_files/compute.gif" height="46" width="152" alt="Classic Computer Magazine Archive" align="center" border="0"></a> COMPUTE! ISSUE 54 / NOVEMBER 1984 / PAGE 163</pre><hr>
+
+
+<div name="topadholder" id="topadholder" style="display: block; min-width:800px; text-align:left;padding:25px 10px 10px 20px;line-height:9.5pt;clear:both;"></div>
+ <table style="zoom:1; min-width:800px;  border-width: 1px; border-spacing: 2px; border-style: dotted; border-color: gray; border-collapse: separate;">
+<tbody><tr><td style="vertical-align:top; zoom:1; min-width:400px;">
+<div id="main_article" name="main_article" style="zoom: 1; min-width:400px;">
+<div id="spacer" style="width:400px;"></div>
+
+<p><b>Enhanced Commodore 64 DOS Support</b></p>
+<p>Stephen S. Melsheimer</p>
+<p><i>The wedge program that comes with every Commodore disk drive makes input/output much simpler. "Enhanced Commodore DOS Support" takes the wedge a few steps further by adding APPEND and VERIFY commands, allowing the use of wedge commands within a BASIC program, and several other features. There are also instructions on how you can further customize your wedge.</i></p>
+
+<p>The Commodore 1541 disk drive used with the Commodore 64 and VIC-20 is <i>intelligent</i>—the disk unit contains a 6502 microprocessor, 16K of ROM holding the disk operating system (DOS), and 2K of RAM that serves as a buffer for information going to or from the disk. Thus, the computer is freed from the chore of managing the disk operations, and no computer memory is appropriated for a disk operating system when a disk drive is added.</p>
+<p>Unfortunately, there are no simple commands in the <i>computer's</i> operating system to provide simple communication with the disk and its DOS. For example, there is no SCRATCH command to delete a file from the disk. Instead, you must use a cumbersome statement like:</p>
+<pre><b>OPEN l,8,15, "S0 : <i>filename" :</i> CLOSE 1</b>
+</pre>
+<p>To make up for this, Commodore provides a DOS support program named "DOS 5.1" (and a simpler "VIC-20 Wedge" for use with the VIC) to facilitate use of the disk. These programs appear on the <i>TEST/DEMO</i> disk which comes with the drive. This DOS wedge program is not needed to operate the disk, and adds no extra capabilities beyond those already present in the disk drive DOS ROM. What it provides is a set of shorthand commands that make things easier for the user. These commands do provide features that are vast improvements over what is possible directly from BASIC. In particular, the ability to display the disk directory without disturbing the program currently in memory is a great convenience.</p>
+<p><b>The Theory Of Wedging</b></p>
+<p>Programs like "DOS 5.1" are called <i>wedge</i> programs because they are wedged into the stream of BASIC interpreter processing. Central to the operation of BASIC is a subroutine called CHRGET (located at addresses $73-$8A in the 64 and VIC). This subroutine gets characters from a BASIC statement and delivers them to the interpreter. A wedge program intercepts each character and inspects it to see if it is a symbol recognized by the wedge. If not, control immediately returns to BASIC.</p>
+<p>The "DOS 5.1" wedge also looks in the microprocessor stack and checks the return address of the BASIC routine which called CHRGET. If it is not an address which indicates the start of a new statement, control returns to BASIC. This allows the symbol characters to have their normal meaning in the middle of a statement. Finally, "DOS 5.1" checks whether BASIC is in direct or program mode, and exits to BASIC if in program mode. Obviously, all of this takes time—a couple of simple benchmark programs took about 15 percent longer to run when the wedge was active, even though it has no useful effect in program mode. Thus, the wedge should be deactivated before running any program where execution speed is important. For those who are curious about the details of "DOS 5.1," Table 1 gives an abbreviated memory map to facilitate exploring it with a machine language monitor.</p>
+<p><b>Extending "DOS 5.1"</b></p>
+<p>"DOS 5.1" provides a table of symbols, and a list of associated vectors that point to the routines for the various functions. Functions can thus be added by altering a vector to point to the new function, and changing the corresponding symbol to the desired character. Since "DOS 5.1" has seven distinct functions, but provides eleven symbols (several are redundant), it is not necessary to delete any existing functions to add new ones. While "DOS 5.1" is very handy, I found that I wanted a few features that were not provided. The resulting "Enhanced DOS Support" program includes APPEND and VERIFY commands, provides a safety feature requiring user confirmation before erasing information on a disk, permits use of DOS commands within BASIC programs, and adds several other features. Still more commands could be added, and procedures for doing this are described below.</p>
+<p><b>APPEND And VERIFY Commands</b></p>
+<p>This revision of "DOS 5.1" originated because I wanted a simple procedure to append a BASIC program on disk to a BASIC program resident in memory. This would allow linking library subroutines or utility programs to other BASIC programs. Mark Niggemann presented an appending technique for the VIC-20 (COMPUTE!, March 1983) which is also applicable to the 64. All that is necessary to append a new program to an existing program is to determine the end address of the program in memory, and alter the starting address of the relocating loader accordingly. A LOAD command then executes as an APPEND. While this method is simple, it uses several direct-mode commands.</p>
+<p>To automate the process, I made a patch in the LOAD section of the DOS support program at $CE26 (see the memory map, Table 1). The patch causes the jump to a new routine at $CF5F–$CF7E which alters the starting address in a manner similar to that presented by Niggemann. &amp; was selected as the symbol to be replaced, so to append a program on disk with the name PROG 2 to a program in memory, one simply enters</p>
+<pre><b>&amp;PROG2</b>
+</pre>
+<p>It should be noted that this is not a <i>merge:</i> All statement numbers in the appended program must be higher than those in the program already in memory.</p>
+<p>The ease with which APPEND was added encouraged me to add further enhancements to "DOS 5.1." Since the same 64 ROM routine handles both LOAD and VERIFY, it seemed reasonable to add a VERIFY command. The = character was assigned as the symbol. In order to produce the OK or VERIFY ERROR messages, a routine ($CE36–$CE6B) was written to check the error status byte for LOAD/VERIFY errors, and issue the appropriate messages. A typical application of VERIFY is</p>
+<pre><b>=PROG3</b>
+</pre>
+<p>which compares PROG3 on disk with the program currently in memory.</p>
+<p>The <i>disk</i> error status read by the @ command of "DOS 5.1" indicates errors detected within the 1541 disk drive and is completely independent of the computer. Although it is essential to check the 64's status byte on VERIFY (and tape LOAD) operations, there is no great reason to check the status byte on disk LOAD operations, since most potential errors are monitored by the disk unit. However, Enhanced DOS Support reads the Commodore 64 error status on all LOAD/VERIFY operations, and does provide some useful messages even on disk LOADs (for example, BREAK ERROR).</p>
+<p><b>Destruction Warnings</b></p>
+<p>Certain disk commands may be disastrous if executed inadvertently—NEW erases an entire diskette, and SCRATCH deletes a file. BASIC 4.0 (used on larger Commodore PET/CBM computers) issues a warning on such commands, and requires user confirmation before executing them. Since "DOS 5.1" makes issuing commands to the disk very easy (and thus increases the prospect of careless errors), Enhanced DOS Support provides this safety feature for destructive commands issued via the DOS support program.</p>
+<p>The portion of "DOS 5.1" ($CD48–$CD6E) that sends such commands to the disk was rewritten, and a new section was added at $CFBD–$CFEF that prints an ARE YOU SURE (Y/N)? message to the screen, and waits for a keyboard response. If N, the command is aborted. This revision also changed the scheme for decoding the commands for deactivating the wedge and for setting the device number. The effect was to free two vectors previously used, compensating for the two used for VERIFY and APPEND. In addition, the command for changing device numbers was simplified to @n rather than @#n.</p>
+<p>Since SAVE&amp;REPLACE also deletes a file, provision was made to issue the warning when the replace option is specified with SAVE operations. The revised SAVE routine is located at $CFF0–$CFFF.</p>
+<p><b>Enabling Program Mode</b></p>
+<p>While Enhanced DOS Support is mainly intended for direct-mode use, a few of the commands can be quite valuable in program mode. Thus, the portion of "DOS 5.1" ($CED1–$CED6) that prevented use of wedge commands within a program was deleted. Several other small changes were also needed to enable the commands to be used in program mode, and the LOAD/VERIFY routine ($CE36–$CE6B) was revised to facilitate program mode use of the % and &amp; commands. With these changes some of the Enhanced DOS Support commands may be used within a program. The symbols =, &#8593;, and / are <i>not</i> allowed as DOS commands. In addition, the * and ? symbols cannot be used as wild cards in filenames while Enhanced DOS Support is active. In program mode these symbols are all tokenized by BASIC with codes other than the ASCII codes, and thus are not recognized by Enhanced DOS Support.</p>
+<p>Of the commands that are operable in program mode, % is especially useful for loading machine language routines or screen images since it does not cause BASIC to restart as a LOAD command does. Thus, constructions like line 100 of Program 1 or line 10 of Program 2, which prevents repeated LOADing, are not needed. The &amp; command was also designed to permit a program to automatically append BASIC subroutines, though using it is a little tricky. A procedure like</p>
+<pre><b>10 IF(PEEK(2)) &lt; &gt; 1THENPOKE2,1 : &amp;SUBPROG</b>
+<b>20 POKE2, 0</b>
+</pre>
+<p>must be used since &amp; restarts BASIC after it is executed, and also CLRs all BASIC variables. Obviously, this should normally be done at the very beginning of the program. Memory location 2 is convenient to use as a flag since it is not used by the computer and has a value of zero on powerup. By using each bit of location 2 as a separate flag, up to eight subprograms could be appended in this manner. Another command that is valuable in program mode is @Q which deactivates the DOS wedge, thus speeding up program execution by about 15 percent. SYS52222 can activate the wedge from within a program, so it can be turned on only when needed.</p>
+<p>Note that Enhanced DOS Support commands can be placed in multiple-statement lines, as illustrated in line 10 above. However, they must appear last on any line in which they are used, and thus only one DOS command can be placed on a line. Further, the Enhanced DOS Support symbol must be the first character of a statement for it to be recognized as such.</p>
+<p><b>Other Changes</b></p>
+<p>After SAVE operations, "DOS 5.1" reads the disk error status in order to verify a successful SAVE. A minor annoyance was that the disk status message appeared after the filename without any spacing or punctuation. Revision of $CD9C–$CDAE added a carriage return to provide a neater and cleaner error report.</p>
+<p>The symbol table and list of vectors, located from $CC03 to $CC26, were revised considerably. The number of symbols was increased from 11 to 12, making the start of the symbol table $CC1B rather than $CC19 as given in the DOS 5.1 memory map of Table 1. Including the new &amp; and = commands, seven distinct symbols have been used. For various reasons, &gt; and ., both synonyms for (5), were added, thus using two more symbols. Since "Supermon64" (COMPUTE!, January 1983) was used extensively in developing Enhanced DOS Support, a symbol (!) was added that branches to Supermon64 (or to any other monitor that is entered via the break vector). Of course, the monitor must have previously been loaded. With ten symbols now assigned, two remain available for future use.</p>
+<p><b>Command Summary</b></p>
+<p>Table 2 lists the commands currently available in Enhanced DOS Support. Note that the . symbol is indicated for most disk command functions, while &gt; is shown for device code changes and @ for reading the disk error status. This is strictly a matter of taste since all three (@, &gt;, and .) are synonyms that perform exactly the same functions. Program 2 is a BASIC boot program that writes a command summary to the screen as Well as LOADing and activating Enhanced DOS Support (assuming you saved it with the program name used in line 10). Use Program 2 as you used "C-64 Wedge" to activate the original "DOS 5.1."</p>
+<p><b>Entering The DOS 5.1 Enhancements</b></p>
+<p>Program 1 will make all the necessary modifications to "DOS 5.1" to create the Enhanced DOS Support program. Before you run Program 1, make sure you have a disk containing the "DOS 5.1" program in the drive; otherwise, you will get the message FILE NOT FOUND ERROR IN 100. If any errors are detected in the DATA statements, the program will stop and report which lines contain errors. When Program 1 has finished, the cursor should be resting on a line of POKE statements. At this point you should insert the disk on which you want to store Enhanced DOS Support. Press RETURN, and the cursor should move to the line with the SAVE statement. Press RETURN again, and Enhanced DOS Support will be stored on the disk with the filename DOS 5.IE. At this point you will need to turn the computer off and back on (or reset with SYS 64738) to return the system to its normal configuration.</p>
+<p>If you want to take the easy way out, send a diskette containing "DOS 5.1" with $3 and a stamped, self-addressed mailer, and I will add the revisions for you.</p>
+<p><i>Stephen S. Melsheimer<br>Clemson University<br>Department of Chemical Engineering<br>Clemson, SC 29631</i></p>
+<p>To use Enhanced DOS Support, load it from disk by running Program 2. The original "C-64 Wedge" supplied with "DOS 5.1" can also be used, if the filename in line 10 is changed from DOS 5.1E to DOS 5.1.</p>
+<p><b>Table 1: "DOS 5.1" Memory Map</b></p>
+<table>
+<tbody><tr><td><b>$CC00</b></td><td>Wedge activation entry (52224)</td></tr>
+<tr><td><b>CC03</b></td><td>symbol vectors</td></tr>
+<tr><td><b>CC19</b></td><td>Symbol table</td></tr>
+<tr><td><b>CC27</b></td><td>Text buffer</td></tr>
+<tr><td><b>CC77</b></td><td>Device number</td></tr>
+<tr><td><b>CC78</b></td><td>Filename suffix</td></tr>
+<tr><td><b>CC7A</b></td><td>Current symbol</td></tr>
+<tr><td><b>CC7B</b></td><td>"DOS MANAGER 5.1 …" text</td></tr>
+<tr><td><b>CCE1</b></td><td>Wedge activation routine</td></tr>
+<tr><td><b>CCF3</b></td><td>Normal entry point</td></tr>
+<tr><td><b>CCF8</b></td><td>CHRGET call address validation ($A7E6 and $A48C are allowed)</td></tr>
+<tr><td><b>CD0E</b></td><td>Check character against symbol table</td></tr>
+<tr><td><b>CD30</b></td><td>Branch to execute routine if symbol matched</td></tr>
+<tr><td><b>CD48</b></td><td>Execute @ commands</td></tr>
+<tr><td><b>CD71</b></td><td>Send command string to disk (for example, @S0 : filename)</td></tr>
+<tr><td><b>CD90</b></td><td>Read disk error status (@)</td></tr>
+<tr><td><b>CDB2</b></td><td>List directory (@$)</td></tr>
+<tr><td><b>CE22</b></td><td>Excute LOAD (including /, %, and &#8593;)</td></tr>
+<tr><td><b>CE6C</b></td><td>Disable wedge (@Q)</td></tr>
+<tr><td><b>CE79</b></td><td>Execute SAVE (&#8592;)</td></tr>
+<tr><td><b>CE7E</b></td><td>Set device code (@#N)</td></tr>
+<tr><td><b>CEA3</b></td><td>Process line into text buffer</td></tr>
+<tr><td><b>CF4B</b></td><td>Print DOS MANAGER message</td></tr>
+<tr><td><b>CF5B</b></td><td>End of "DOS 5.1"</td></tr>
+</tbody></table>
+<p><b>Toble 2: Enhanced DOS Support Commands</b></p>
+<table>
+<tbody><tr><td><b>$</b></td><td>Directory Listing</td></tr>
+<tr><td><b><i>/filename</i></b></td><td>Load</td></tr>
+<tr><td><b><i>&#8593;filename</i></b></td><td>Load and run</td></tr>
+<tr><td><b>&amp; <i>filename</i></b></td><td>Append</td></tr>
+<tr><td><b>&#8592;<i>filename</i></b></td><td>Save</td></tr>
+<tr><td><b>&#8592;<i>@0:filename</i></b></td><td>Save and replace</td></tr>
+<tr><td><b>=<i>filename</i></b></td><td>Verify</td></tr>
+<tr><td><b>%<i>filename</i></b></td><td>Absolute load</td></tr>
+<tr><td><b><i>.S0 : filename</i></b></td><td>Scratch</td></tr>
+<tr><td><b>.R0 : <i>newname = 0 : oldname</i></b></td><td>Rename</td></tr>
+<tr><td><b>.C0 : <i>newfile = 0 : oldfile, old2, …old4</i></b></td><td>Copy/Concatenate up to four files</td></tr>
+<tr><td><b><i>.N0 : diskname, id</i></b></td><td>Format disk</td></tr>
+<tr><td><b>.I</b></td><td>Initialize disk</td></tr>
+<tr><td><b>.V</b></td><td>Validate disk</td></tr>
+<tr><td><b>@</b></td><td>Read disk error status</td></tr>
+<tr><td><b>!</b></td><td>Break/Activate monitor</td></tr>
+<tr><td><b>&gt;n</b></td><td>Change disk device number to n</td></tr>
+<tr><td><b>.Q</b></td><td>Disable DOS Support</td></tr>
+<tr><td><b>SYS 52224</b></td><td>Reactivate DOS Support</td></tr>
+</tbody></table>
+<p><b>(Note: ., <i>&gt;,</i> and @ can be used interchangeably in any command beginning with one of these symbols.)</b></p>
+<p>One caution: Commodore may in the future issue revisions of the DOS wedge. The enhancements given here may not work with versions different from the one on which it is based. If you get the message DOS MANAGER V5.1/071382 when you activate the original DOS 5.1, you have the correct version. If Program 1 checks out okay, but your program will not work, that may be the problem. The "easy out" mentioned above is still available in that case, of course.</p>
+<p><b>Further Extensions</b></p>
+<p>Two symbols remain unassigned in Enhanced DOS Support, and two of the three redundant command codes (@, &gt;, and .) could be reassigned for other uses if needed. Thus, additional functions can easily be added to the program. One possibility is a command to link other utility programs (for example, a programmer's aid package) in a manner similar to the ! monitor link. Another handy addition might be a help routine that could display a summary of the Enhanced DOS Support commands on the screen without disrupting the program in memory. This could also include monitor or even BASIC commands as well.</p>
+<p>To add a command, put the ASCII value of the desired symbol character in location $CC26. Then, put the high byte of the starting address of the new routine in $CC0E, and put the low byte of the target address <i>less one</i> in $CC1A. For a second command, decrement each of these addresses by one. The only other thing you must do is the hard part–writing the routine that will accomplish the new function. Locations $CF7F–$CFB1 are unused in DOS 5.IE, but extensive routines would have to be located outside the $CC00–$CFFF block. Remember that if a routine is to be used in program mode, the symbol must not be tokenized by BASIC (for example, do not use * as a symbol).</p>
+
+
+
+
+</div>
+</td><td style="width:330px; min-width:330px; vertical-align:top; zoom:1; ">
+<div id="sideadplaceholder" style=" width:340px; min-width:340px;">
+
+</div>
+          
+</td></tr></tbody></table>
+
+
+
+
+
+
+<div style="display: none">
+
+<!--[if !IE]-->
+<script type="text/javascript">
+var adcountoffset=0;
+var aheightoffset=0;
+var aheightfactor=0;
+</script>
+
+<!--[endif]-->
+<!--[if IE]>
+<script type="text/javascript">
+var adcountoffset=0;
+var aheightoffset=19;
+var aheightfactor=0.023;
+</script>
+<![endif]-->
+
+<script type="text/javascript">
+			        
+			            
+                  var maxAds = 20; 
+                  google_max_num_ads = 6;
+                  var elementId = "main_article";
+                     var col = document.getElementById(elementId);  // determining the height of column to adjust number of ads
+              var article_height=parseInt(col.offsetHeight-aheightoffset-((col.offsetHeight-aheightoffset)*aheightfactor)); //compensate for IE
+
+                if (col) // if defined, trying to calculate how many ads to show
+                {
+                    var article_height=col.offsetHeight-aheightoffset;
+               
+                    var adHeight = 80;
+                    numberOfAds = Math.floor(article_height / adHeight);
+                    numberOfAds = parseInt(numberOfAds);
+                  
+                    numberOfAds = ((numberOfAds+5+adcountoffset) >= maxAds) ? maxAds : (numberOfAds+5+adcountoffset); //limiting numberOfAds
+                   
+                    google_max_num_ads=(numberOfAds > google_max_num_ads) ? numberOfAds :  google_max_num_ads;
+                    
+
+                }
+			            function google_ad_request_done(google_ads){
+			                var s = '<div style="width:330px; text-align:left;padding:25px 10px 0px 10px; line-height:15pt;" >';
+			                s += '<a href=\"' + google_info.feedback_url + '\" style="clear:both; margin-left:0px;margin-top:-15px;display:block;color:#666666;font-family:verdana,arial,sans-serif; text-decoration: none; font-weight:500; font-size:9pt;">Ads by Google</a><div>';
+			                var i;
+			                
+			                if (google_ads.length == 0) {
+			                    return;
+			                }
+			                if (google_ads[0].type == "flash") {
+			                    s += '<object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"' +
+			                    ' codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=6,0,0,0" WIDTH="' +
+			                    google_ad.image_width +
+			                    '" HEIGHT="' +
+			                    google_ad.image_height +
+			                    '"> <PARAM NAME="movie" VALUE="' +
+			                    google_ad.image_url +
+			                    '">' +
+			                    '<PARAM NAME="quality" VALUE="high">' +
+			                    '<PARAM NAME="AllowScriptAccess" VALUE="never">' +
+			                    '<EMBED src="' +
+			                    google_ad.image_url +
+			                    '" WIDTH="' +
+			                    google_ad.image_width +
+			                    '" HEIGHT="' +
+			                    google_ad.image_height +
+			                    '" TYPE="application/x-shockwave-flash"' +
+			                    ' AllowScriptAccess="never" ' +
+			                    ' PLUGINSPAGE="http://www.macromedia.com/go/getflashplayer"></EMBED></OBJECT>';
+			                                    if(document.getElementById('topadholder')) {
+                                           document.getElementById('topadholder').innerHTML = s;
+                                          }
+			                    
+			                }
+			                else 
+			                    if (google_ads[0].type == "image") {
+			                    
+			                        s += '<a href="' +
+			                        google_ads[0].url +
+			                        '" target="_top" title="go to ' +
+			                        google_ads[0].visible_url +
+			                        '" onmouseout="window.status=\'\'" onmouseover="window.status=\'go to ' +
+			                        google_ads[0].visible_url +
+			                        '\';return true"><img border="0" src="' +
+			                        google_ads[0].image_url +
+			                        '"width="' +
+			                        google_ads[0].image_width +
+			                        '"height="' +
+			                        google_ads[0].image_height +
+			                        '"></a>';
+			        			              if(document.getElementById('topadholder')) {
+                                           document.getElementById('topadholder').innerHTML = s;
+                                  }
+			                        
+			                    }
+			                    else 
+			                        if (google_ads[0].type == "html") {
+			                            s += google_ads[0].snippet;
+
+			                            			  if(document.getElementById('topadholder')) {
+                                           document.getElementById('topadholder').innerHTML = s;
+                                          }
+			                        }
+			                        else {
+                                if (google_ads.length == 1) {
+			                                s += '<a style="line-height:18pt; letter-spacing: 2px; color:blue;font-family:verdana,arial,sans-serif;" href="' +
+			                                google_ads[0].url +
+			                                '" onmouseout="window.status=\'\'" onmouseover="window.status=\'go to ' +
+			                                google_ads[0].visible_url +
+			                                '\';return true"> <span style="font-size:18pt;font-weight:bold;"> ' +
+			                                google_ads[0].line1 +
+			                                '</span></a> <span style="line-height:18pt; letter-spacing: 2px; text-decoration:none;color:#0e0e0e;font-family:verdana,arial,sans-serif;font-size:14pt;font-weight:400;">&nbsp;-&nbsp;' +
+			                                google_ads[0].line2 +
+			                                '&nbsp;' +
+			                                google_ads[0].line3 +
+			                                '</span><br /><span><a style="color:blue;letter-spacing: 1.5px;font-size:13pt;font-weight:400;text-decoration:none;font-family:verdana,arial,sans-serif;" href="' +
+			                                google_ads[0].url +
+			                                '" onmouseout="window.status=\'\'" onmouseover="window.status=\'go to ' +
+			                                google_ads[0].visible_url +
+			                                '\';return true">' +
+			                                google_ads[0].visible_url +
+			                                '</span></a><br>';
+			                                    if(document.getElementById('topadholder')) {
+                                           document.getElementById('topadholder').innerHTML = s;
+                                          }
+			                                
+			                            }
+			                            else
+			                            {
+			                            if (google_ads.length > 1) {
+			                              var s1 = '<div style="display: block; min-width:800px; text-align:left;padding:25px 10px 10px 20px;line-height:9.5pt;clear:both;" >';
+                                  s1 += '<a href=\"' + google_info.feedback_url + '\" style="clear:both;margin-left:0px;margin-top:-15px;position:absolute;display:block;color:#666666;font-family:verdana,arial,sans-serif; text-decoration: none; font-weight:500; font-size:9pt;">Ads by Google</a><div>';
+			           
+			                                for (i = 0; i < 5; ++i) {
+                                          s1 += '<div style="display: block; margin-right:2px;">';
+			                                    s1 += '<a style="letter-spacing: 1.5px;color:blue;font-family:verdana,arial,sans-serif;font-size:10pt;font-weight:bold;" href="' +
+			                                    google_ads[i].url +
+			                                    '" onmouseout="window.status=\'\'" onmouseover="window.status=\'go to ' +
+			                                    google_ads[i].visible_url +
+			                                    '\';return true">' +
+			                                    google_ads[i].line1 +
+			                                    '</a> <span style="text-decoration:none;letter-spacing: 1.5px;color:#0e0e0e;font-family:verdana,arial,sans-serif;font-size:10pt;font-weight:400;">' +
+			                                    google_ads[i].line2 +
+                                          '&nbsp;' +
+			                                    google_ads[i].line3 +
+			                                    '</span> <span><a style="line-height:normal;color:blue;letter-spacing: 1.2px;font-size:9pt;font-weight:400;text-decoration:none;font-family:verdana,arial,sans-serif;" href="' +
+			                                    google_ads[i].url +
+			                                    '" onmouseout="window.status=\'\'" onmouseover="window.status=\'go to ' +
+			                                    google_ads[i].visible_url +
+			                                    '\';return true">' +
+			                                    google_ads[i].visible_url +
+			                                    '</span></a>';
+			                                    s1 += "</div><br />"
+			                                     
+			                                }
+                                     
+                                       if(document.getElementById('topadholder')) {
+                                           document.getElementById('topadholder').innerHTML = s1;
+                                          }
+                                          if (google_ads.length>5)
+                                          {
+                                          s2=s;
+                                  
+                                         for (i = 5; i < google_ads.length; ++i) {
+                                         
+			                                    s2 += '<div style="margin-right:2px;">';
+			                                    s2 += '<a style="color:blue;font-family:courier new,verdana;font-size:12pt;font-weight:bold;" href="' +
+			                                    google_ads[i].url +
+			                                    '" onmouseout="window.status=\'\'" onmouseover="window.status=\'go to ' +
+			                                    google_ads[i].visible_url +
+			                                    '\';return true">' +
+			                                    google_ads[i].line1 +
+			                                    '</a><br /><span style="text-decoration:none;letter-spacing: 1.5px;color:#0e0e0e;font-family:verdana,arial,sans-serif;font-size:10pt;font-weight:400;">' +
+			                                    google_ads[i].line2 +
+                                          '&nbsp;' +
+			                                    google_ads[i].line3 +
+			                                    '</span> <span><a style="line-height:normal;color:blue;letter-spacing: 1.2px;font-size:9pt;font-weight:400;text-decoration:none;font-family:verdana,arial,sans-serif;" href="' +
+			                                    google_ads[i].url +
+			                                    '" onmouseout="window.status=\'\'" onmouseover="window.status=\'go to ' +
+			                                    google_ads[i].visible_url +
+			                                    '\';return true">' +
+			                                    google_ads[i].visible_url +
+			                                    '</span></a><br /><br />';
+			                                    s2 += "</div>";
+			                
+			                                     
+			                                }
+                                  
+		                                       if(document.getElementById('sideadplaceholder')) {
+                                           document.getElementById('sideadplaceholder').innerHTML = s2;
+                                          }
+                                        }
+			                               }
+			                            }
+			                        }
+			            
+			                
+			                return;
+			            }
+			            google_ad_output = 'js';
+                  google_feedback = 'on';
+                  google_ad_client = "pub-0754410284344153";
+                  google_alternate_color = "FFFFFF";
+                  google_ad_channel ="1234567886";
+                  google_ad_type = "text";
+                  google_color_border = "FFFFFF";
+                  google_color_bg = "FFFFFF";
+                  google_color_link = "0000EE";
+                  google_color_url = "0000EE";
+                  google_color_text = "000000";
+			                
+
+			            
+			        </script>
+			            
+  </div>
+
+<hr>
+<ul>
+<li><a href="javascript:history.back()">Back to previous page</a>
+</li><li><a target="_blank" href="http://archive.org/stream/1984-11-compute-magazine/Compute_Issue_054_1984_Nov#page/n163/mode/2up">See this article as it appeared in the magazine</a></li>
+<li><a href="http://www.atarimagazines.com/compute/index/?issue=issue54">View this issue's table of contents</a>
+</li></ul>
+
+
+<center>
+
+<script type="text/javascript"><!--
+google_ad_client = "pub-0754410284344153";
+google_alternate_color = "FFFFFF";
+google_ad_width = 728;
+google_ad_height = 15;
+google_ad_format = "728x15_0ads_al_s";
+google_ad_channel = "1234567883";
+google_color_border = "FFFFFF";
+google_color_bg = "FFFFFF";
+google_color_link = "0000FF";
+google_color_text = "000000";
+google_color_url = "666666";
+//-->
+</script>
+</center>
+
+<script type="text/javascript">
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script><script src="./Enhanced Commodore 64 DOS Support_files/ga.js" type="text/javascript"></script>
+<script type="text/javascript">
+var pageTracker = _gat._getTracker("UA-191321-33");
+pageTracker._initData();
+pageTracker._trackPageview();
+</script>
+
+</body></html>
